@@ -1,0 +1,123 @@
+name: Upstream Sync
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: "Branch to sync (leave empty to sync all)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target_branch:
+          - main
+          - custom
+          - per_game_ppsspp_settings_for_tsp
+
+    if: >
+      github.event_name != 'workflow_dispatch' ||
+      github.event.inputs.target_branch == '' ||
+      github.event.inputs.target_branch == matrix.target_branch
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git author
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream and origin branches
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          upstream_url="https://github.com/cizia64/CrossMix-OS.git"
+
+          if git remote get-url upstream >/dev/null 2>&1; then
+            git remote set-url upstream "$upstream_url"
+          else
+            git remote add upstream "$upstream_url"
+          fi
+
+          # Ensure upstream/main exists as refs/remotes/upstream/main
+          git fetch upstream +refs/heads/main:refs/remotes/upstream/main
+
+          # Fetch all origin branches as refs/remotes/origin/<branch>
+          git fetch origin +refs/heads/*:refs/remotes/origin/*
+
+      - name: Check target branch exists on origin
+        id: branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git show-ref --verify --quiet "refs/remotes/origin/${{ matrix.target_branch }}"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Missing branch on origin: ${{ matrix.target_branch }}"
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check for upstream updates (ancestor test)
+        if: steps.branch.outputs.exists == 'true'
+        id: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          target_ref="origin/${{ matrix.target_branch }}"
+          upstream_ref="upstream/main"
+
+          # If upstream/main is already contained in the target branch, nothing to do.
+          if git merge-base --is-ancestor "$upstream_ref" "$target_ref"; then
+            echo "No upstream changes for ${{ matrix.target_branch }} (already contains upstream/main)."
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Upstream has new commits not in ${{ matrix.target_branch }}."
+          echo "updated=true" >> "$GITHUB_OUTPUT"
+
+      - name: Merge upstream into working tree
+        if: steps.upstream.outputs.updated == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          automation_branch="automation/upstream-main-${{ matrix.target_branch }}"
+          git checkout -B "$automation_branch" "origin/${{ matrix.target_branch }}"
+
+          # Perform the merge without committing; create-pull-request will commit the result.
+          git merge --no-commit --no-ff upstream/main
+
+      - name: Create pull request
+        if: steps.upstream.outputs.updated == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "Sync upstream/main -> ${{ matrix.target_branch }}"
+          title: "Sync upstream/main -> ${{ matrix.target_branch }}"
+          body: |
+            Summary
+            - Merge upstream `main` into `${{ matrix.target_branch }}`.
+
+            Notes
+            - Workflow runs daily at 06:00 UTC and skips when upstream is already contained in the target branch.
+          branch: "automation/upstream-main-${{ matrix.target_branch }}"
+          base: "${{ matrix.target_branch }}"
+          delete-branch: true
