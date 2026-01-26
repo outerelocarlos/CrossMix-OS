@@ -16,15 +16,17 @@ version=$(cat /mnt/SDCARD/System/usr/trimui/crossmix-version.txt)
 FW_patched_version=$(cat /usr/trimui/crossmix-version.txt)
 
 PPSSPP_SETUP_MARKER="/mnt/SDCARD/System/etc/ppsspp_setup_done"
-show_ppsspp_notice() {
+UX_PREFS_MARKER="/mnt/SDCARD/System/etc/outerelocarlos_ux_prefs_done"
+show_notice() {
     message="$1"
     color="${2:-}"
+    time="${3:-2}"
     info_screen="/mnt/SDCARD/System/usr/trimui/scripts/infoscreen.sh"
     if [ -x "$info_screen" ] && [ ! -f "/tmp/infoscreen_disabled" ]; then
         if [ -n "$color" ]; then
-            "$info_screen" -m "$message" -c "$color" -t 2
+            "$info_screen" -m "$message" -c "$color" -t "$time"
         else
-            "$info_screen" -m "$message" -t 2
+            "$info_screen" -m "$message" -t "$time"
         fi
         return
     fi
@@ -62,11 +64,11 @@ run_ppsspp_setup() {
 
     SETUP_DIR="/mnt/SDCARD/Apps/SystemTools/Menu/EMULATORS"
     SETUP_SCRIPT="$SETUP_DIR/Optimize PPSSPP Settings.sh"
-    show_ppsspp_notice "Optimizing PPSSPP settings..."
+    show_notice "Optimizing PPSSPP settings..."
 
     if [ ! -f "$SETUP_SCRIPT" ]; then
         echo "PPSSPP setup script not found: $SETUP_SCRIPT"
-        show_ppsspp_notice "PPSSPP setup script not found." "red"
+        show_notice "PPSSPP setup script not found." "red"
         return
     fi
 
@@ -79,12 +81,44 @@ run_ppsspp_setup() {
     setup_status=$?
     if [ "$setup_status" -ne 0 ]; then
         echo "PPSSPP setup failed with status $setup_status."
-        show_ppsspp_notice "PPSSPP setup failed." "red"
+        show_notice "PPSSPP setup failed." "red"
         return
     fi
 
     mkdir -p "$(dirname "$PPSSPP_SETUP_MARKER")"
     touch "$PPSSPP_SETUP_MARKER"
+}
+
+run_ux_prefs() {
+    if [ -f "$UX_PREFS_MARKER" ]; then
+        return
+    fi
+
+    SETUP_DIR="/mnt/SDCARD/Apps/SystemTools/Menu/USER INTERFACE"
+    SETUP_SCRIPT="$SETUP_DIR/Apply outerelocarlos UX preferences.sh"
+    show_notice "Applying outerelocarlos UX preferences..."
+
+    if [ ! -f "$SETUP_SCRIPT" ]; then
+        echo "UX preferences script not found: $SETUP_SCRIPT"
+        show_notice "UX preferences script not found." "red"
+        return
+    fi
+
+    if command -v bash >/dev/null 2>&1; then
+        (cd "$SETUP_DIR" && bash "$SETUP_SCRIPT")
+    else
+        (cd "$SETUP_DIR" && sh "$SETUP_SCRIPT")
+    fi
+
+    setup_status=$?
+    if [ "$setup_status" -ne 0 ]; then
+        echo "UX preferences setup failed with status $setup_status."
+        show_notice "UX preferences setup failed." "red"
+        return
+    fi
+
+    mkdir -p "$(dirname "$UX_PREFS_MARKER")"
+    touch "$UX_PREFS_MARKER"
 }
 
 inputd_ran=0
@@ -258,6 +292,7 @@ if [ "$version" != "$FW_patched_version" ]; then
 
     # Displaying only Emulators with roms
     /mnt/SDCARD/Apps/EmuCleaner/launch.sh -s
+    run_ux_prefs
 
     ################ Flash boot logo ################
     if [ "$CrossMix_Update" = "0" ]; then
@@ -274,12 +309,15 @@ if [ "$version" != "$FW_patched_version" ]; then
     fi
 fi
 
-if [ ! -f "$PPSSPP_SETUP_MARKER" ] && [ "$inputd_ran" -eq 0 ]; then
-    /mnt/SDCARD/System/usr/trimui/scripts/inputd_switcher.sh
-    if [ -f /tmp/device_changed ]; then
-        rm -f /tmp/device_changed
+if [ ! -f "$PPSSPP_SETUP_MARKER" ] || [ ! -f "$UX_PREFS_MARKER" ]; then
+    if [ "$inputd_ran" -eq 0 ]; then
+        /mnt/SDCARD/System/usr/trimui/scripts/inputd_switcher.sh
+        if [ -f /tmp/device_changed ]; then
+            rm -f /tmp/device_changed
+        fi
     fi
     run_ppsspp_setup
+    run_ux_prefs
 fi
 
 ######################### CrossMix-OS at each boot #########################
