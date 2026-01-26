@@ -95,7 +95,7 @@ run_ux_prefs() {
     fi
 
     SETUP_DIR="/mnt/SDCARD/Apps/SystemTools/Menu/USER INTERFACE"
-    SETUP_SCRIPT="$SETUP_DIR/Apply outerelocarlos UX preferences.sh"
+    SETUP_SCRIPT="$SETUP_DIR/Apply outerelocarlos UX Preferences.sh"
     show_notice "Applying outerelocarlos UX preferences..."
 
     if [ ! -f "$SETUP_SCRIPT" ]; then
