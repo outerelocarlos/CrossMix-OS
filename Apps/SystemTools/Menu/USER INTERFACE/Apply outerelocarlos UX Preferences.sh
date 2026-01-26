@@ -55,21 +55,9 @@ show_notice "Applying outerelocarlos UX preferences..." "" 1
 show_notice "Applying theme pack: Epic Noir" "" 1
 run_script "$ROOT_DIR/Apps/SystemTools/Menu/THEME##THEME PACK (value)/Epic Noir.sh"
 
-# Theme
-show_notice "Applying theme: Epic Noir" "" 1
-run_script "$ROOT_DIR/Apps/SystemTools/Menu/ADVANCED SETTINGS##THEMES (value)/Epic Noir.sh"
-
-# Backgrounds
-show_notice "Applying backgrounds: Epic Noir (Static)" "" 1
-run_script "$ROOT_DIR/Apps/SystemTools/Menu/ADVANCED SETTINGS##BACKGROUNDS (value)/Epic Noir (Static).sh"
-
 # Emulator Labels
 show_notice "Applying emulator labels: Console Short Name - EU" "" 1
 run_script "$ROOT_DIR/Apps/SystemTools/Menu/ADVANCED SETTINGS##EMULATOR LABELS (value)/Console Short Name - EU.sh"
-
-# Icons
-show_notice "Applying icons: Epic Noir (Controllers)" "" 1
-run_script "$ROOT_DIR/Apps/SystemTools/Menu/ADVANCED SETTINGS##ICONS (value)/Epic Noir (Controllers).sh"
 
 # Titles Fontsize
 show_notice "Applying title size: default" "" 1
